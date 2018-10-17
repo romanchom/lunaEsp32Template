@@ -1,0 +1,9 @@
+[submodule "components/ws281x-driver-esp32"]
+	path = components/ws281x-driver-esp32
+	url = git@github.com:romanchom/ws281x-driver-esp32.git
+[submodule "components/libLuna"]
+	path = components/libLuna
+	url = git@github.com:romanchom/libLuna.git
+[submodule "components/libLunaEsp32"]
+	path = components/libLunaEsp32
+	url = git@github.com:romanchom/libLunaEsp32.git
