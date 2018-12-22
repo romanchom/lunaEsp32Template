@@ -7,3 +7,5 @@ set(COMPONENT_EMBED_TXTFILES
 )
 
 register_component()
+
+target_link_libraries(${COMPONENT_TARGET} lunaProto)
