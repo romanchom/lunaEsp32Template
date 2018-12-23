@@ -68,180 +68,53 @@ static void initializeWiFi()
     ESP_LOGI(TAG, "WiFi initialized.");
 }
 
-#include "lwip_async/DtlsInputOutput.hpp"
 #include "Certificates.hpp"
-#include "DiscoveryResponder.hpp"
-#include <luna/proto/Discovery_generated.h>
-#include <luna/proto/Commands_generated.h>
-#include <WS281xDriver.hpp>
-#include <unordered_map>
 
-auto ownKey = tls::PrivateKey(my_key, my_key_end - my_key);
-auto ownCertificate = tls::Certificate(my_cert, my_cert_end - my_cert);
-auto caCertificate = tls::Certificate(ca_cert, ca_cert_end - ca_cert);
+#include <luna/esp32/NetworkManager.hpp>
+#include <luna/esp32/HardwareController.hpp>
+#include <luna/esp32/StrandWS281x.hpp>
+#include <luna/esp32/Outputs.hpp>
 
-
-struct Point {
-    float x = 0.0f;
-    float y = 0.0f;
-    float z = 0.0f;
-};
-
-struct UV {
-    float u = 0.0f;
-    float v = 0.0f;
-};
-
-struct ColorSpace {
-    UV white;
-    UV red;
-    UV green;
-    UV blue;
-};
-
-struct StrandConfig {
-    uint16_t pixelCount;
-    uint8_t channels;
-    Point begin;
-    Point end;
-    ColorSpace colorSpace;
-};
-
-class Strand {
-public:
-    virtual ~Strand() {}
-    virtual void setData(luna::proto::StrandData const * data) = 0;
-
-    StrandConfig const & config() const
-    {
-        return mConfig;
-    }
-protected:
-    explicit Strand(StrandConfig const & config) :
-        mConfig(config)
-    {}
-    StrandConfig mConfig;
-};
-
-struct StrandWS2812Config : StrandConfig {
-    int GPIO;
-};
-
-class StrandWS2812 : public Strand {
-public:
-    explicit StrandWS2812(StrandWS2812Config const & config) :
-        Strand(config),
-        mDriver(config.GPIO, config.pixelCount)
-    {
-        mConfig.channels = 7;
-    }
-
-    ~StrandWS2812() override {};
-    
-    void setData(luna::proto::StrandData const * data) override
-    {
-        auto src = data->data_as_RGBData();
-        if (src) {
-            auto dest = mDriver.data().data();
-            memcpy(dest, reinterpret_cast<uint8_t const*>(src), mConfig.pixelCount * 3);
-            mDriver.send();
-        }
-    }
-
-private:
-    WS281xDriver mDriver;
-};
-
-
-luna::proto::Point toProto(Point const & point) {
-    return luna::proto::Point(point.x, point.y, point.z);
-}
-
-luna::proto::UV toProto(UV const & uv) {
-    return luna::proto::UV(uv.u, uv.v);
-}   
-
-luna::proto::ColorSpace toProto(ColorSpace const & colorSpace) {
-    return luna::proto::ColorSpace(
-        toProto(colorSpace.white),
-        toProto(colorSpace.red),
-        toProto(colorSpace.green),
-        toProto(colorSpace.blue)
-    );
-}
-
-std::vector<Strand *> strands;
-
-std::unordered_map<luna::proto::AnyCommand, std::function<void(void const *)>, std::hash<int>> commandMap;
-
-void dispatchCommand(lwip_async::DtlsInputOutput& sender, uint8_t const* data, size_t size)
-{
-    auto command = luna::proto::GetCommand(data);
-    auto it = commandMap.find(command->command_type());
-    if (it != commandMap.end()) {
-        auto & executor = it->second;
-        executor(command->command());
-    } else {
-        ESP_LOGI(TAG, "No executor.");
-    }
-}
+std::unique_ptr<luna::esp32::NetworkManager> lunaNetworkManager;
+luna::esp32::HardwareController controller;
 
 static void wifiConnected()
 {
-    commandMap.emplace(luna::proto::AnyCommand_SetColor, [](void const * data){
-
-        auto cmd = static_cast<luna::proto::SetColor const *>(data);
-        auto const strands = cmd->strands();
-        if (strands == nullptr) return;
-
-        for (auto strandData : *strands) {
-            auto index = strandData->id();
-            if (index >= ::strands.size()) continue;
-            
-            auto strand = ::strands[index];
-            strand->setData(strandData);
-        }
-    });
-
-    auto dtls = new lwip_async::DtlsInputOutput(ownKey, ownCertificate, caCertificate);
-    dtls->onDataRead(dispatchCommand);
-
-    StrandWS2812Config config;
-    config.pixelCount = 8;
-    config.begin = {-1.0f, -1.0f};
-    config.end = {-1.0f, 1.0f};
-    config.GPIO = 14;
-    strands.push_back(new StrandWS2812(config));
-
-    std::vector<luna::proto::Strand> strandConfigs;
-    for (int i = 0; i < strands.size(); ++i) {
-        auto const & config = strands[i]->config();
-        strandConfigs.emplace_back(
-            i,
-            (luna::proto::ColorChannels)config.channels,
-            config.pixelCount,
-            toProto(config.begin),
-            toProto(config.end),
-            toProto(config.colorSpace)
-        );
-    }
-    
-    auto discResp = new luna::esp32::DiscoveryResponder(dtls->port(), "Loszek", strandConfigs);
+    lunaNetworkManager->enable();
 }
 
 static void wifiDisconnected()
 {
+    lunaNetworkManager->disable();
+}
 
+static void configureHardware()
+{
+    auto & strands = controller.strands();
+    luna::esp32::WS2812Configuration config;
+    config.pixelCount = 8;
+    config.begin = {-1.0f, -1.0f};
+    config.end = {-1.0f, 1.0f};
+    config.gpioPin = luna::esp32::output5;
+    
+    strands.emplace_back(std::make_unique<luna::esp32::StrandWS2812>(config));
 }
 
 static void initializeLuna()
 {
-    
+    luna::esp32::NetworkManagerConfiguration config = {
+        my_key,  static_cast<size_t>(my_key_end - my_key),
+        my_cert, static_cast<size_t>(my_cert_end - my_cert),
+        ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),
+    };
+
+    lunaNetworkManager = std::make_unique<luna::esp32::NetworkManager>(config, &controller);
 }
 
 void app_main()
 {
     initializeNonVolatileStorage();
+    configureHardware();
     initializeLuna();
     initializeWiFi();
 }

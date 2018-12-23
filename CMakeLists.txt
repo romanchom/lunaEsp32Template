@@ -5,5 +5,3 @@ add_compile_options(-fdiagnostics-color=always)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(LunaEsp32Template)
-
-add_subdirectory(lunaProto)

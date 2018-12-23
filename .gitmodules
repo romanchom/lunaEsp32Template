@@ -4,6 +4,4 @@
 [submodule "components/libLunaEsp32"]
 	path = components/libLunaEsp32
 	url = git@github.com:romanchom/libLunaEsp32.git
-[submodule "lunaProto"]
-	path = lunaProto
-	url = git@github.com:romanchom/lunaProto.git
+	
