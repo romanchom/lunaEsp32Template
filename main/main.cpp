@@ -73,6 +73,7 @@ static void initializeWiFi()
 #include <luna/esp32/NetworkManager.hpp>
 #include <luna/esp32/HardwareController.hpp>
 #include <luna/esp32/StrandWS281x.hpp>
+#include <luna/esp32/StrandView.hpp>
 #include <luna/esp32/Outputs.hpp>
 
 std::unique_ptr<luna::esp32::NetworkManager> lunaNetworkManager;
@@ -88,16 +89,44 @@ static void wifiDisconnected()
     lunaNetworkManager->disable();
 }
 
-static void configureHardware()
+std::shared_ptr<luna::esp32::StrandWS2812> makePhysicalStrand()
 {
-    auto & strands = controller.strands();
     luna::esp32::WS2812Configuration config;
-    config.pixelCount = 8;
+    config.pixelCount = 100;
     config.begin = {-1.0f, -1.0f};
     config.end = {-1.0f, 1.0f};
     config.gpioPin = luna::esp32::output5;
-    
-    strands.emplace_back(std::make_unique<luna::esp32::StrandWS2812>(config));
+
+    return std::make_shared<luna::esp32::StrandWS2812>(config);
+}
+
+std::unique_ptr<luna::esp32::Strand> makeRightStrand(std::shared_ptr<luna::esp32::StrandWS2812> child)
+{
+    luna::esp32::StrandConfiguration config;
+    config.pixelCount = 36;
+    config.begin = {1.5f, -3.0f};
+    config.end = {1.5f, 2.0f};
+
+    return std::make_unique<luna::esp32::StrandView>(std::move(child), config, 0);
+}
+
+std::unique_ptr<luna::esp32::Strand> makeTopStrand(std::shared_ptr<luna::esp32::StrandWS2812> child)
+{
+    luna::esp32::StrandConfiguration config;
+    config.pixelCount = 57;
+    config.begin = {1.5f, 2.0f};
+    config.end = {-4.0f, 2.0f};
+
+    return std::make_unique<luna::esp32::StrandView>(std::move(child), config, 36);
+}
+
+static void configureHardware()
+{
+    auto physicalStrand = makePhysicalStrand();
+
+    auto & strands = controller.strands();
+    strands.emplace_back(makeRightStrand(physicalStrand));
+    strands.emplace_back(makeTopStrand(physicalStrand));
 }
 
 static void initializeLuna()
