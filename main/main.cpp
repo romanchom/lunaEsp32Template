@@ -1,22 +1,21 @@
-#include <esp_event_loop.h>
+#include "Certificates.hpp"
+#include "WiFi.hpp"
+
+#include <luna/esp32/NetworkManager.hpp>
+#include <luna/esp32/HardwareController.hpp>
+#include <luna/esp32/StrandWS281x.hpp>
+#include <luna/esp32/Outputs.hpp>
+#include <luna/esp32/Updater.hpp>
+#include <luna/esp32/PWM.hpp>
+#include <luna/esp32/PWMLight.hpp>
+
 #include <esp_log.h>
-#include <esp_system.h>
-#include <esp_wifi.h>
 #include <nvs_flash.h>
 #include <driver/gpio.h>
-#include <driver/ledc.h>
 
-#include <cstring>
 #include <memory>
 
-#define EXAMPLE_ESP_WIFI_SSID CONFIG_ESP_WIFI_SSID
-#define EXAMPLE_ESP_WIFI_PASS CONFIG_ESP_WIFI_PASSWORD
-
 static char const TAG[] = "App";
-
-static void wifiConnected();
-static void wifiDisconnected();
-extern "C" void app_main();
 
 static void initializeNonVolatileStorage()
 {
@@ -30,150 +29,117 @@ static void initializeNonVolatileStorage()
     ESP_ERROR_CHECK(ret);
 }
 
-static esp_err_t event_handler(void *ctx, system_event_t *event)
+using namespace luna::esp32;
+
+std::unique_ptr<StrandBase> makeLeftStrand()
 {
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        ESP_LOGI(TAG, "got ip:%s",
-                 ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
-        wifiConnected();
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        esp_wifi_connect();
-        wifiDisconnected();
-        break;
-    default:
-        break;
-    }
-    return ESP_OK;
+    return std::make_unique<StrandWS2811>(
+        Location{
+            {-1.0f, -1.3f},
+            {-1.0f, 1.0f}
+        },
+        120,
+        26
+    );
 }
 
-static void initializeWiFi()
+std::unique_ptr<StrandBase> makeRightStrand()
 {
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(event_handler, NULL) );
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    wifi_config_t wifi_config = {};
-    strcpy(reinterpret_cast<char *>(wifi_config.sta.ssid), EXAMPLE_ESP_WIFI_SSID);
-    strcpy(reinterpret_cast<char *>(wifi_config.sta.password), EXAMPLE_ESP_WIFI_PASS);
-
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "WiFi initialized.");
+    return std::make_unique<StrandWS2811>(
+        Location{
+            {1.0f, -1.3f},
+            {1.0f, 1.0f}
+        },
+        120,
+        27
+    );
 }
 
-#include "Certificates.hpp"
-
-#include <luna/esp32/NetworkManager.hpp>
-#include <luna/esp32/HardwareController.hpp>
-#include <luna/esp32/StrandWS281x.hpp>
-#include <luna/esp32/StrandView.hpp>
-#include <luna/esp32/Outputs.hpp>
-
-std::unique_ptr<luna::esp32::NetworkManager> lunaNetworkManager;
-luna::esp32::HardwareController controller;
-
-static void wifiConnected()
+std::unique_ptr<StrandBase> makeWhite(PWMTimer * timer, float x, int pin)
 {
-    lunaNetworkManager->enable();
+    return std::make_unique<PWMLight>(
+        Location{
+            {x, -1.3f},
+            {x, 1.0f}
+        },
+        pin,
+        timer
+    );
 }
 
-static void wifiDisconnected()
+std::vector<std::unique_ptr<StrandBase>> makeStrands(PWMTimer * ledTimer)
 {
-    lunaNetworkManager->disable();
+    std::vector<std::unique_ptr<StrandBase>> ret;
+    ret.emplace_back(makeLeftStrand());
+    ret.emplace_back(makeRightStrand());
+    ret.emplace_back(makeWhite(ledTimer, -1, 25));
+    ret.emplace_back(makeWhite(ledTimer, 1, 33));
+    return ret;
 }
 
-std::unique_ptr<luna::esp32::StrandWS2812> makeLeftStrand()
+NetworkManagerConfiguration networkConfig()
 {
-    luna::esp32::WS2812Configuration config;
-    config.pixelCount = 120;
-    config.begin = {-1.0f, -1.2f};
-    config.end = {-1.0f, 1.0f};
-    config.gpioPin = 26;
-
-    return std::make_unique<luna::esp32::StrandWS2812>(config);
-}
-
-std::unique_ptr<luna::esp32::StrandWS2812> makeRightStrand()
-{
-    luna::esp32::WS2812Configuration config;
-    config.pixelCount = 120;
-    config.begin = {1.0f, -1.2f};
-    config.end = {1.0f, 1.0f};
-    config.gpioPin = 27;
-
-    return std::make_unique<luna::esp32::StrandWS2812>(config);
-}
-
-static void configureHardware()
-{
-    auto & strands = controller.strands();
-    strands.emplace_back(makeLeftStrand());
-    strands.emplace_back(makeRightStrand());
-
-    gpio_config_t io_conf;
-    io_conf.intr_type = gpio_int_type_t(GPIO_PIN_INTR_DISABLE);
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = 1 << 14;
-    io_conf.pull_down_en = gpio_pulldown_t(0);
-    io_conf.pull_up_en = gpio_pullup_t(0);
-    gpio_config(&io_conf);
-
-    gpio_set_level(gpio_num_t(14), 0);
-
-
-    ledc_timer_config_t ledc_timer;
-    ledc_timer.duty_resolution = ledc_timer_bit_t(8);
-    ledc_timer.freq_hz = 40000;
-    ledc_timer.speed_mode = LEDC_HIGH_SPEED_MODE;
-    ledc_timer.timer_num = LEDC_TIMER_0;
-    ledc_timer_config(&ledc_timer);
-
-    ledc_channel_config_t ledc_channel;
-    ledc_channel.channel = LEDC_CHANNEL_0;
-    ledc_channel.duty = 0;
-    ledc_channel.gpio_num = gpio_num_t(32);
-    ledc_channel.speed_mode = LEDC_HIGH_SPEED_MODE;
-    ledc_channel.hpoint = 0;
-    ledc_channel.timer_sel = LEDC_TIMER_0;
-    ledc_channel_config(&ledc_channel);
-
-
-
-
-    controller.onEnabled([](bool enabled) {
-        gpio_set_level(gpio_num_t(14), enabled ? 1 : 0);
-        ESP_LOGI(TAG, "Enabled. %d", (enabled ? 1 : 0));
-
-        ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, enabled ? 90 : 0);
-        ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
-    });
-}
-
-static void initializeLuna()
-{
-    luna::esp32::NetworkManagerConfiguration config = {
+    return {
         my_key,  static_cast<size_t>(my_key_end - my_key),
         my_cert, static_cast<size_t>(my_cert_end - my_cert),
         ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),
     };
-
-    lunaNetworkManager = std::make_unique<luna::esp32::NetworkManager>(config, &controller);
 }
 
-void app_main()
+struct WiFiLuna : private WiFi::Observer
+{
+    explicit WiFiLuna() :
+        mDummyTimer(0, 40000, 8),
+        mLedTimer(1, 19520, 11),
+        mDummyPWM(&mDummyTimer, 32),
+        mController(makeStrands(&mLedTimer)),
+        mLunaNetworkManager(networkConfig(), &mController),
+        mWiFi(CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD)
+
+    {
+        mWiFi.observer(this);
+
+        gpio_config_t io_conf;
+        io_conf.intr_type = gpio_int_type_t(GPIO_PIN_INTR_DISABLE);
+        io_conf.mode = GPIO_MODE_OUTPUT;
+        io_conf.pin_bit_mask = 1 << 14;
+        io_conf.pull_down_en = gpio_pulldown_t(0);
+        io_conf.pull_up_en = gpio_pullup_t(0);
+        gpio_config(&io_conf);
+
+        gpio_set_level(gpio_num_t(14), 0);
+
+        mController.onEnabled([this](bool enabled) {
+            gpio_set_level(gpio_num_t(14), enabled ? 1 : 0);
+            ESP_LOGI(TAG, "Enabled. %d", (enabled ? 1 : 0));
+
+            mDummyPWM.duty(enabled ? 0.75f : 0.0f);
+        });
+
+        mWiFi.enabled(true);
+    }
+private:
+    void connected(ip4_addr_t address) final
+    {
+        mLunaNetworkManager.enable();
+    }
+
+    void disconnected() final
+    {
+        mLunaNetworkManager.disable();
+    }
+
+    PWMTimer mDummyTimer;
+    PWMTimer mLedTimer;
+    PWM mDummyPWM;
+    HardwareController mController;
+    NetworkManager mLunaNetworkManager;
+    WiFi mWiFi;
+};
+
+extern "C" void app_main()
 {
     initializeNonVolatileStorage();
-    configureHardware();
-    initializeLuna();
-    initializeWiFi();
+
+    new WiFiLuna();
 }
