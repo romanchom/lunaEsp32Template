@@ -33,25 +33,25 @@ using namespace luna::esp32;
 
 std::unique_ptr<StrandBase> makeLeftStrand()
 {
-    return std::make_unique<StrandWS2811>(
+    return std::make_unique<StrandWS2812>(
         Location{
             {-1.0f, -1.3f},
             {-1.0f, 1.0f}
         },
         120,
-        26
+        27
     );
 }
 
 std::unique_ptr<StrandBase> makeRightStrand()
 {
-    return std::make_unique<StrandWS2811>(
+    return std::make_unique<StrandWS2812>(
         Location{
             {1.0f, -1.3f},
             {1.0f, 1.0f}
         },
         120,
-        27
+        26
     );
 }
 
@@ -89,10 +89,9 @@ NetworkManagerConfiguration networkConfig()
 struct WiFiLuna : private WiFi::Observer
 {
     explicit WiFiLuna() :
-        mDummyTimer(0, 40000, 8),
-        mLedTimer(1, 19520, 11),
-        mDummyPWM(&mDummyTimer, 32),
-        mController(makeStrands(&mLedTimer)),
+        mPWMTimer(0, 19520, 11),
+        mDummyPWM(&mPWMTimer, 32),
+        mController(makeStrands(&mPWMTimer)),
         mLunaNetworkManager(networkConfig(), &mController),
         mWiFi(CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD)
 
@@ -129,8 +128,7 @@ private:
         mLunaNetworkManager.disable();
     }
 
-    PWMTimer mDummyTimer;
-    PWMTimer mLedTimer;
+    PWMTimer mPWMTimer;
     PWM mDummyPWM;
     HardwareController mController;
     NetworkManager mLunaNetworkManager;
