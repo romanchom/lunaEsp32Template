@@ -1,17 +1,27 @@
 #!/bin/bash
-openssl ecparam -genkey -name prime256v1 -out ca_key.pem
-openssl ecparam -genkey -name prime256v1 -out my_key.pem
-openssl ecparam -genkey -name prime256v1 -out cl_key.pem
 
-openssl req -new -sha256 -key ca_key.pem -out csr
-openssl req -x509 -sha256 -days 3650 -key ca_key.pem -in csr -out ca_cert.pem
-rm csr
+openssl ecparam \
+    -genkey \
+    -name prime256v1 \
+    -outform PEM \
+    -out $1_key.pem
 
-openssl req -new -sha256 -key my_key.pem -out csr
-openssl req -x509 -sha256 -days 3650 -key ca_key.pem -in csr -out my_cert.pem
-rm csr
+openssl req \
+    -new \
+    -keyform PEM \
+    -key $1_key.pem \
+    -out csr
 
-openssl req -new -sha256 -key cl_key.pem -out csr
-openssl req -x509 -sha256 -days 3650 -key ca_key.pem -in csr -out cl_cert.pem
-rm csr
-
+openssl x509 \
+    -req \
+    -inform PEM \
+    -in csr \
+    -CAform PEM \
+    -CA ca_cert.pem \
+    -CAkeyform PEM \
+    -CAkey ca_key.pem \
+    -CAcreateserial \
+    -days 3650 \
+    -sha256 \
+    -outform PEM \
+    -out $1_cert.pem
