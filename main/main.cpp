@@ -28,54 +28,54 @@ static void initializeNonVolatileStorage()
 }
 
 using namespace luna::esp32;
+using namespace luna::proto;
 
-std::shared_ptr<Strand<RGB<uint8_t>>> makePhysicalStrand()
+struct RoomLightController : public luna::esp32::HardwareController
 {
-    return std::make_shared<StrandWS2811>(
-        Location{
-            {-1.0f, -1.0f, 0.0f},
-            {-1.0f, 1.0f, 0.0f}
-        },
-        93,
-        output5
-    );
-}
-
-std::unique_ptr<StrandBase> makeRightStrand(std::shared_ptr<Strand<RGB<uint8_t>>> child)
-{
-    return std::make_unique<StrandView<RGB<uint8_t>>>(
-        Location{
-            {1.5f, -3.0f},
-            {1.5f, 2.0f}
-        },
-        std::move(child),
-        0,
-        36
-    );
-}
-
-std::unique_ptr<StrandBase> makeTopStrand(std::shared_ptr<Strand<RGB<uint8_t>>> child)
-{
-    return std::make_unique<StrandView<RGB<uint8_t>>>(
-        Location{
-            {1.5f, 2.0f},
-            {-4.0f, 2.0f}
-        },
-        std::move(child),
-        36,
-        57
-    );
-}
-
-std::vector<std::unique_ptr<StrandBase>> makeStrands()
-{
-    auto physicalStrand = makePhysicalStrand();
-    std::vector<std::unique_ptr<StrandBase>> strands;
-    strands.emplace_back(makeRightStrand(physicalStrand));
-    strands.emplace_back(makeTopStrand(physicalStrand));
-
-    return std::move(strands);
-}
+    explicit RoomLightController() :
+        physicalStrand(
+            Location{
+                {-1.0f, -1.0f, 0.0f},
+                {-1.0f, 1.0f, 0.0f}
+            },
+            93,
+            output5
+        ),
+        rightStrand(
+            Location{
+                {1.5f, -3.0f},
+                {1.5f, 2.0f}
+            },
+            &physicalStrand,
+            0,
+            36
+        ),
+        topStrand(
+            Location{
+                {1.5f, 2.0f},
+                {-4.0f, 2.0f}
+            },
+            &physicalStrand,
+            36,
+            57
+        )
+    {}
+    
+    std::vector<StrandBase *> strands() final
+    {
+        return {
+            &rightStrand,
+            &topStrand
+        };
+    }
+    
+    void enabled(bool value) final
+    {}
+private:
+    StrandWS2811 physicalStrand;
+    StrandView<RGB> rightStrand;
+    StrandView<RGB> topStrand;
+};
 
 NetworkManagerConfiguration networkConfig()
 {
@@ -89,7 +89,7 @@ NetworkManagerConfiguration networkConfig()
 struct WiFiLuna : private WiFi::Observer
 {
     explicit WiFiLuna() :
-        mController(makeStrands()),
+        mController(),
         mLunaNetworkManager(networkConfig(), &mController),
         mWiFi(CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD)
     {
@@ -107,7 +107,7 @@ private:
         mLunaNetworkManager.disable();
     }
 
-    HardwareController mController;
+    RoomLightController mController;
     NetworkManager mLunaNetworkManager;
     WiFi mWiFi;
 };
