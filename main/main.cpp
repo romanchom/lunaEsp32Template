@@ -8,10 +8,10 @@
 #include <luna/esp32/Updater.hpp>
 #include <luna/esp32/PWM.hpp>
 #include <luna/esp32/PWMLight.hpp>
+#include <luna/esp32/GPIO.hpp>
 
 #include <esp_log.h>
 #include <nvs_flash.h>
-#include <driver/gpio.h>
 
 #include <memory>
 
@@ -31,52 +31,6 @@ static void initializeNonVolatileStorage()
 
 using namespace luna::esp32;
 
-std::unique_ptr<StrandBase> makeLeftStrand()
-{
-    return std::make_unique<StrandWS2812>(
-        Location{
-            {-1.0f, -1.3f},
-            {-1.0f, 1.0f}
-        },
-        120,
-        27
-    );
-}
-
-std::unique_ptr<StrandBase> makeRightStrand()
-{
-    return std::make_unique<StrandWS2812>(
-        Location{
-            {1.0f, -1.3f},
-            {1.0f, 1.0f}
-        },
-        120,
-        26
-    );
-}
-
-std::unique_ptr<StrandBase> makeWhite(PWMTimer * timer, float x, int pin)
-{
-    return std::make_unique<PWMLight>(
-        Location{
-            {x, -1.3f},
-            {x, 1.0f}
-        },
-        pin,
-        timer
-    );
-}
-
-std::vector<std::unique_ptr<StrandBase>> makeStrands(PWMTimer * ledTimer)
-{
-    std::vector<std::unique_ptr<StrandBase>> ret;
-    ret.emplace_back(makeLeftStrand());
-    ret.emplace_back(makeRightStrand());
-    ret.emplace_back(makeWhite(ledTimer, -1, 25));
-    ret.emplace_back(makeWhite(ledTimer, 1, 33));
-    return ret;
-}
-
 NetworkManagerConfiguration networkConfig()
 {
     return {
@@ -86,40 +40,86 @@ NetworkManagerConfiguration networkConfig()
     };
 }
 
+struct BasementLightController : HardwareController
+{
+    explicit BasementLightController() :
+        mPowerEnable(14),
+        mPWMTimer(0, 19520, 11),
+        mDummyPWM(&mPWMTimer, 32),
+        leftRGB(
+            Location{
+                {-1.0f, -1.3f},
+                {-1.0f, 1.0f}
+            },
+            120,
+            27
+        ),
+        rightRGB(
+            Location{
+                {1.0f, -1.3f},
+                {1.0f, 1.0f}
+            },
+            120,
+            26
+        ),
+        leftWhite(
+            Location{
+                {-1, -1.3f},
+                {-1, 1.0f}
+            },
+            25,
+            &mPWMTimer
+        ),
+        rightWhite(
+            Location{
+                {1, -1.3f},
+                {1, 1.0f}
+            },
+            33,
+            &mPWMTimer
+        )
+    {}
+    
+    std::vector<StrandBase *> strands() final
+    {
+        return {
+            &leftRGB,
+            &rightRGB,
+            &leftWhite,
+            &rightWhite,
+        };
+    }
+    
+    void enabled(bool value) final
+    {
+        mPowerEnable.out(value);
+        mDummyPWM.duty(value ? 0.75f : 0.0f);
+    }
+private:
+    luna::esp32::GPIO mPowerEnable;
+    PWMTimer mPWMTimer;
+    PWM mDummyPWM;
+    StrandWS2812 leftRGB;
+    StrandWS2812 rightRGB;
+    PWMLight leftWhite;
+    PWMLight rightWhite;
+};
+
 struct WiFiLuna : private WiFi::Observer
 {
     explicit WiFiLuna() :
-        mPWMTimer(0, 19520, 11),
-        mDummyPWM(&mPWMTimer, 32),
-        mController(makeStrands(&mPWMTimer)),
+        mController(),
         mLunaNetworkManager(networkConfig(), &mController),
         mWiFi(CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD)
-
     {
         mWiFi.observer(this);
-
-        gpio_config_t io_conf;
-        io_conf.intr_type = gpio_int_type_t(GPIO_PIN_INTR_DISABLE);
-        io_conf.mode = GPIO_MODE_OUTPUT;
-        io_conf.pin_bit_mask = 1 << 14;
-        io_conf.pull_down_en = gpio_pulldown_t(0);
-        io_conf.pull_up_en = gpio_pullup_t(0);
-        gpio_config(&io_conf);
-
-        gpio_set_level(gpio_num_t(14), 0);
-
-        mController.onEnabled([this](bool enabled) {
-            gpio_set_level(gpio_num_t(14), enabled ? 1 : 0);
-            ESP_LOGI(TAG, "Enabled. %d", (enabled ? 1 : 0));
-
-            mDummyPWM.duty(enabled ? 0.75f : 0.0f);
-        });
-
         mWiFi.enabled(true);
     }
+
 private:
     void connected(ip4_addr_t address) final
     {
+        ESP_LOGI(TAG, "Connected");
         mLunaNetworkManager.enable();
     }
 
@@ -128,9 +128,7 @@ private:
         mLunaNetworkManager.disable();
     }
 
-    PWMTimer mPWMTimer;
-    PWM mDummyPWM;
-    HardwareController mController;
+    BasementLightController mController;
     NetworkManager mLunaNetworkManager;
     WiFi mWiFi;
 };

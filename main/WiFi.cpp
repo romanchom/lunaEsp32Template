@@ -52,13 +52,12 @@ esp_err_t WiFi::handleEvent(system_event_t * event)
         if (mObserver) {
             mObserver->connected(event->event_info.got_ip.ip_info.ip);
         }
-        // ESP_LOGI(TAG, "got ip:%s", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
-        esp_wifi_connect();
         if (mObserver) {
             mObserver->disconnected();
         }
+        esp_wifi_connect();
         break;
     default:
         break;
