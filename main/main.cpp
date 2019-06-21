@@ -1,19 +1,17 @@
 #include "Certificates.hpp"
 #include "WiFi.hpp"
 
+#include <luna/esp32/StrandWS281x.hpp>
+#include <luna/esp32/PWMLight.hpp>
+#include <luna/esp32/Located.hpp>
+#include <luna/esp32/Metered.hpp>
+
 #include <luna/esp32/NetworkManager.hpp>
 #include <luna/esp32/HardwareController.hpp>
-#include <luna/esp32/StrandWS281x.hpp>
-#include <luna/esp32/Outputs.hpp>
-#include <luna/esp32/Updater.hpp>
-#include <luna/esp32/PWM.hpp>
-#include <luna/esp32/PWMLight.hpp>
-#include <luna/esp32/GPIO.hpp>
+#include <luna/esp32/ATX.hpp>
 
 #include <esp_log.h>
 #include <nvs_flash.h>
-
-#include <memory>
 
 static char const TAG[] = "App";
 
@@ -40,13 +38,16 @@ NetworkManagerConfiguration networkConfig()
     };
 }
 
+constexpr float rgbLedCurrentDraw = 0.02f;
+constexpr float whiteLedCurrentDraw = 4.8f;
+
 struct BasementLightController : HardwareController
 {
     explicit BasementLightController() :
-        mPowerEnable(14),
         mPWMTimer(0, 19520, 11),
-        mDummyPWM(&mPWMTimer, 32),
-        leftRGB(
+        mPowerSupply(&mPWMTimer, 14, 32, 4.7f, 0.13f),
+        mLeftRGB(
+            rgbLedCurrentDraw,
             Location{
                 {-1.0f, -1.3f},
                 {-1.0f, 1.0f}
@@ -54,7 +55,8 @@ struct BasementLightController : HardwareController
             120,
             27
         ),
-        rightRGB(
+        mRightRGB(
+            rgbLedCurrentDraw,
             Location{
                 {1.0f, -1.3f},
                 {1.0f, 1.0f}
@@ -62,7 +64,8 @@ struct BasementLightController : HardwareController
             120,
             26
         ),
-        leftWhite(
+        mLeftWhite(
+            whiteLedCurrentDraw,
             Location{
                 {-1, -1.3f},
                 {-1, 1.0f}
@@ -70,7 +73,8 @@ struct BasementLightController : HardwareController
             25,
             &mPWMTimer
         ),
-        rightWhite(
+        mRightWhite(
+            whiteLedCurrentDraw,
             Location{
                 {1, -1.3f},
                 {1, 1.0f}
@@ -78,31 +82,37 @@ struct BasementLightController : HardwareController
             33,
             &mPWMTimer
         )
-    {}
+    {
+        mPowerSupply.observe5V({&mLeftRGB, &mRightRGB});
+        mPowerSupply.observe12V({&mLeftWhite, &mRightWhite});
+    }
     
-    std::vector<StrandBase *> strands() final
+    std::vector<StrandBase *> strands() override
     {
         return {
-            &leftRGB,
-            &rightRGB,
-            &leftWhite,
-            &rightWhite,
+            &mLeftRGB,
+            &mRightRGB,
+            &mLeftWhite,
+            &mRightWhite,
         };
     }
     
-    void enabled(bool value) final
+    void enabled(bool value) override
     {
-        mPowerEnable.out(value);
-        mDummyPWM.duty(value ? 0.75f : 0.0f);
+        mPowerSupply.enabled(value);
+    }
+    
+    void update()
+    {   
+        mPowerSupply.balanceLoad();
     }
 private:
-    luna::esp32::GPIO mPowerEnable;
     PWMTimer mPWMTimer;
-    PWM mDummyPWM;
-    StrandWS2812 leftRGB;
-    StrandWS2812 rightRGB;
-    PWMLight leftWhite;
-    PWMLight rightWhite;
+    ATX mPowerSupply;
+    Metered<Located<StrandWS2812>> mLeftRGB;
+    Metered<Located<StrandWS2812>> mRightRGB;
+    Metered<Located<PWMLight>> mLeftWhite;
+    Metered<Located<PWMLight>> mRightWhite;
 };
 
 struct WiFiLuna : private WiFi::Observer
@@ -117,13 +127,13 @@ struct WiFiLuna : private WiFi::Observer
     }
 
 private:
-    void connected(ip4_addr_t address) final
+    void connected(ip4_addr_t address) override
     {
         ESP_LOGI(TAG, "Connected");
         mLunaNetworkManager.enable();
     }
 
-    void disconnected() final
+    void disconnected() override
     {
         mLunaNetworkManager.disable();
     }
