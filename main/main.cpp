@@ -28,6 +28,7 @@ static void initializeNonVolatileStorage()
 }
 
 using namespace luna::esp32;
+using namespace luna::proto;
 
 NetworkManagerConfiguration networkConfig()
 {

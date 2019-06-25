@@ -3,25 +3,25 @@
 openssl ecparam \
     -genkey \
     -name prime256v1 \
-    -outform DER \
-    -out $1_key.der
+    -outform PEM \
+    -out $1_key.pem
 
 openssl req \
     -new \
-    -keyform DER \
-    -key $1_key.der \
+    -keyform PEM \
+    -key $1_key.pem \
     -out csr
 
 openssl x509 \
     -req \
     -inform PEM \
     -in csr \
-    -CAform DER \
-    -CA ca_cert.der \
-    -CAkeyform DER \
-    -CAkey ca_key.der \
+    -CAform PEM \
+    -CA ca_cert.pem \
+    -CAkeyform PEM \
+    -CAkey ca_key.pem \
     -CAcreateserial \
     -days 3650 \
     -sha256 \
-    -outform DER \
-    -out $1_cert.der
+    -outform PEM \
+    -out $1_cert.pem
