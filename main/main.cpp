@@ -34,10 +34,6 @@ struct RoomLightController : public luna::esp32::HardwareController
 {
     explicit RoomLightController() :
         physicalStrand(
-            Location{
-                {-1.0f, -1.0f, 0.0f},
-                {-1.0f, 1.0f, 0.0f}
-            },
             93,
             output5
         ),
@@ -71,6 +67,10 @@ struct RoomLightController : public luna::esp32::HardwareController
     
     void enabled(bool value) final
     {}
+
+    void update() final {
+        physicalStrand.render();
+    }
 private:
     StrandWS2811 physicalStrand;
     StrandView<RGB> rightStrand;
