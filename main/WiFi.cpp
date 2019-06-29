@@ -6,7 +6,8 @@
 #include <esp_wifi.h>
 
 WiFi::WiFi(char const * ssid, char const * password) :
-    mObserver(nullptr)
+    mObserver(nullptr),
+    mConnected(false)
 {
     tcpip_adapter_init();
     ESP_ERROR_CHECK(esp_event_loop_init(WiFi::eventHandler, this) );
@@ -49,13 +50,15 @@ esp_err_t WiFi::handleEvent(system_event_t * event)
         esp_wifi_connect();
         break;
     case SYSTEM_EVENT_STA_GOT_IP:
-        if (mObserver) {
+        if (!mConnected && mObserver) {
             mObserver->connected(event->event_info.got_ip.ip_info.ip);
+            mConnected = true;
         }
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
-        if (mObserver) {
+        if (mConnected && mObserver) {
             mObserver->disconnected();
+            mConnected = false;
         }
         esp_wifi_connect();
         break;

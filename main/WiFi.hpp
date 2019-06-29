@@ -19,4 +19,5 @@ private:
     Observer * mObserver;
     static esp_err_t eventHandler(void * context, system_event_t * event);
     esp_err_t handleEvent(system_event_t * event);
+    bool mConnected;
 };
