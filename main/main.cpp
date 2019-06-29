@@ -46,7 +46,7 @@ struct BasementLightController : HardwareController
 {
     explicit BasementLightController() :
         mPWMTimer(0, 19520, 11),
-        mPowerSupply(&mPWMTimer, 14, 32, 4.7f, 0.13f),
+        mPowerSupply(&mPWMTimer, 14, 32, 4.7f, 0.15f),
         mLeftRGB(
             rgbLedCurrentDraw,
             Location{
