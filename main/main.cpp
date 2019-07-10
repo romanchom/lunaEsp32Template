@@ -1,16 +1,12 @@
 #include "Certificates.hpp"
 #include "WiFi.hpp"
 
-#include <luna/esp32/NetworkManager.hpp>
-#include <luna/esp32/HardwareController.hpp>
-#include <luna/esp32/StrandWS281x.hpp>
-#include <luna/esp32/Outputs.hpp>
-#include <luna/esp32/Updater.hpp>
+#include <luna/NetworkManager.hpp>
+#include <luna/HardwareController.hpp>
+#include <luna/StrandWS281x.hpp>
 
 #include <esp_log.h>
 #include <nvs_flash.h>
-
-#include <memory>
 
 static char const TAG[] = "App";
 
@@ -26,14 +22,13 @@ static void initializeNonVolatileStorage()
     ESP_ERROR_CHECK(ret);
 }
 
-using namespace luna::esp32;
-using namespace luna::proto;
+using namespace luna;
 
-struct RoomLightController : public luna::esp32::HardwareController
+struct RoomLightController : public luna::HardwareController
 {
     explicit RoomLightController() :
         physicalStrand(
-            output5,
+            14,
             93
         ),
         rightStrand(
@@ -75,7 +70,7 @@ NetworkManagerConfiguration networkConfig()
 {
     return {
         "Pokoj",
-        "mqtt://192.168.0.110:1883",
+        "mqtt://192.168.0.101:1883",
         my_key,  static_cast<size_t>(my_key_end - my_key),
         my_cert, static_cast<size_t>(my_cert_end - my_cert),
         ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),

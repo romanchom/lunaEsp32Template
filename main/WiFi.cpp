@@ -9,12 +9,17 @@ WiFi::WiFi(char const * ssid, char const * password) :
     mObserver(nullptr)
 {
     tcpip_adapter_init();
-    ESP_ERROR_CHECK(esp_event_loop_init(WiFi::eventHandler, this) );
+
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
-    wifi_config_t wifi_config = {};
+    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &WiFi::eventHandler, this));
+    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &WiFi::eventHandler, this));
+
+    static wifi_config_t wifi_config = {};
+    memset(&wifi_config, 0, sizeof(wifi_config_t));
     strcpy(reinterpret_cast<char *>(wifi_config.sta.ssid), ssid);
     strcpy(reinterpret_cast<char *>(wifi_config.sta.password), password);
 
@@ -33,35 +38,36 @@ void WiFi::enabled(bool value)
     if (value) {
         ESP_ERROR_CHECK(esp_wifi_start());
     } else {
-        
+
     }
 }
 
-esp_err_t WiFi::eventHandler(void * context, system_event_t * event)
+void WiFi::eventHandler(void * context, esp_event_base_t eventBase, int32_t eventId, void * eventData)
 {
-    return static_cast<WiFi *>(context)->handleEvent(event);
+    return static_cast<WiFi *>(context)->handleEvent(eventBase, eventId, eventData);
 }
 
-esp_err_t WiFi::handleEvent(system_event_t * event)
+void WiFi::handleEvent(esp_event_base_t eventBase, int32_t eventId, void * eventData)
 {
-    switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
-        break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        if (mObserver) {
-            mObserver->connected(event->event_info.got_ip.ip_info.ip);
+    if (eventBase == WIFI_EVENT) {
+        switch (eventId) {
+        case WIFI_EVENT_STA_DISCONNECTED:
+            if (mObserver) {
+                mObserver->disconnected();
+            }
+            // fallthrough
+        case WIFI_EVENT_STA_START:
+            esp_wifi_connect();
+            break;
+        default:
+            break;
         }
-        // ESP_LOGI(TAG, "got ip:%s", ip4addr_ntoa(&event->event_info.got_ip.ip_info.ip));
-        break;
-    case SYSTEM_EVENT_STA_DISCONNECTED:
-        esp_wifi_connect();
-        if (mObserver) {
-            mObserver->disconnected();
+    } else if (eventBase == IP_EVENT) {
+        if (eventId == IP_EVENT_STA_GOT_IP) {
+            auto event = static_cast<ip_event_got_ip_t const *>(eventData);
+            if (mObserver) {
+                mObserver->connected(event->ip_info.ip);
+            }
         }
-        break;
-    default:
-        break;
     }
-    return ESP_OK;
 }

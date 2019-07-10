@@ -17,6 +17,6 @@ struct WiFi
     void enabled(bool value);
 private:
     Observer * mObserver;
-    static esp_err_t eventHandler(void * context, system_event_t * event);
-    esp_err_t handleEvent(system_event_t * event);
+    static void eventHandler(void * context, esp_event_base_t eventBase, int32_t eventId, void * eventData);
+    void handleEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
 };
