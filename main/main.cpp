@@ -4,7 +4,6 @@
 #include <luna/esp32/NetworkManager.hpp>
 #include <luna/esp32/HardwareController.hpp>
 #include <luna/esp32/StrandWS281x.hpp>
-#include <luna/esp32/StrandView.hpp>
 #include <luna/esp32/Outputs.hpp>
 #include <luna/esp32/Updater.hpp>
 
@@ -34,52 +33,49 @@ struct RoomLightController : public luna::esp32::HardwareController
 {
     explicit RoomLightController() :
         physicalStrand(
-            93,
-            output5
+            output5,
+            93
         ),
         rightStrand(
-            Location{
-                {1.5f, -3.0f},
-                {1.5f, 2.0f}
-            },
-            &physicalStrand,
-            0,
-            36
-        ),
-        topStrand(
-            Location{
-                {1.5f, 2.0f},
-                {-4.0f, 2.0f}
-            },
+            {{1.5f, -3.0f, 0.0f}, {1.5f, 2.0f, 0.0f}},
             &physicalStrand,
             36,
-            57
+            0
+        ),
+        topStrand(
+            {{1.5f, 2.0f, 0.0f}, {-4.0f, 2.0f, 0.0f}},
+            &physicalStrand,
+            57,
+            36
         )
     {}
-    
-    std::vector<StrandBase *> strands() final
+
+    std::vector<Strand *> strands() final
     {
         return {
             &rightStrand,
             &topStrand
         };
     }
-    
+
     void enabled(bool value) final
     {}
 
-    void update() final {
-        physicalStrand.render();
+    void update() final
+    {
+        physicalStrand.send();
     }
 private:
-    StrandWS2811 physicalStrand;
-    StrandView<RGB> rightStrand;
-    StrandView<RGB> topStrand;
+    WS281xDriver physicalStrand;
+    StrandWS2811 rightStrand;
+    StrandWS2811 topStrand;
 };
 
 NetworkManagerConfiguration networkConfig()
 {
     return {
+        "Pokoj",
+        "mqtt://192.168.0.110:1883",
         my_key,  static_cast<size_t>(my_key_end - my_key),
         my_cert, static_cast<size_t>(my_cert_end - my_cert),
         ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),
