@@ -1,13 +1,13 @@
 #include "Certificates.hpp"
 #include "WiFi.hpp"
 
-#include <luna/esp32/StrandWS281x.hpp>
-#include <luna/esp32/WS281xMeter.hpp>
-#include <luna/esp32/PWMLight.hpp>
+#include <luna/StrandWS281x.hpp>
+#include <luna/WS281xMeter.hpp>
+#include <luna/PWMLight.hpp>
 
-#include <luna/esp32/NetworkManager.hpp>
-#include <luna/esp32/HardwareController.hpp>
-#include <luna/esp32/ATX.hpp>
+#include <luna/NetworkManager.hpp>
+#include <luna/HardwareController.hpp>
+#include <luna/ATX.hpp>
 
 #include <esp_log.h>
 #include <nvs_flash.h>
@@ -26,7 +26,7 @@ static void initializeNonVolatileStorage()
     ESP_ERROR_CHECK(ret);
 }
 
-using namespace luna::esp32;
+using namespace luna;
 using namespace luna::proto;
 
 NetworkManagerConfiguration networkConfig()
@@ -71,7 +71,7 @@ struct BasementLightController : HardwareController
 {
     explicit BasementLightController() :
         mPWMTimer(0, 19520, 11),
-        mPowerSupply(&mPWMTimer, 14, 32, 4.7f, 0.15f),
+        mPowerSupply(&mPWMTimer, 14, 32, 4.7f, 0.20f),
         mLeft(
             {{-1.0f, -1.3f, 0.0f}, {-1.0f, 1.0f, 0.0f}},
             27,
