@@ -69,8 +69,8 @@ private:
 NetworkManagerConfiguration networkConfig()
 {
     return {
-        "Pokoj",
-        "mqtt://192.168.0.104:1883",
+        "pokoj",
+        "mqtts://192.168.0.233:8883",
         my_key,  static_cast<size_t>(my_key_end - my_key),
         my_cert, static_cast<size_t>(my_cert_end - my_cert),
         ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),
