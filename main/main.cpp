@@ -1,30 +1,18 @@
 #include "Certificates.hpp"
-#include "WiFi.hpp"
 
+#include <luna/Main.hpp>
 #include <luna/NetworkManager.hpp>
 #include <luna/HardwareController.hpp>
 #include <luna/StrandWS281x.hpp>
 
 #include <esp_log.h>
-#include <nvs_flash.h>
 
 static char const TAG[] = "App";
 
-static void initializeNonVolatileStorage()
-{
-    esp_err_t ret = nvs_flash_init();
-
-    if (ESP_ERR_NVS_NO_FREE_PAGES == ret) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-
-    ESP_ERROR_CHECK(ret);
-}
-
 using namespace luna;
+using namespace std::literals;
 
-struct RoomLightController : public luna::HardwareController
+struct RoomLightController : public HardwareController
 {
     explicit RoomLightController() :
         physicalStrand(
@@ -66,46 +54,23 @@ private:
     StrandWS2811 topStrand;
 };
 
-NetworkManagerConfiguration networkConfig()
-{
-    return {
-        "pokoj",
-        "mqtts://192.168.0.233:8883",
-        my_key,  static_cast<size_t>(my_key_end - my_key),
-        my_cert, static_cast<size_t>(my_cert_end - my_cert),
-        ca_cert, static_cast<size_t>(ca_cert_end - ca_cert),
-    };
-}
-
-struct WiFiLuna : private WiFi::Observer
-{
-    explicit WiFiLuna() :
-        mController(),
-        mLunaNetworkManager(networkConfig(), &mController),
-        mWiFi(CONFIG_ESP_WIFI_SSID, CONFIG_ESP_WIFI_PASSWORD)
-    {
-        mWiFi.observer(this);
-        mWiFi.enabled(true);
-    }
-private:
-    void connected(ip4_addr_t address) final
-    {
-        mLunaNetworkManager.enable();
-    }
-
-    void disconnected() final
-    {
-        mLunaNetworkManager.disable();
-    }
-
-    RoomLightController mController;
-    NetworkManager mLunaNetworkManager;
-    WiFi mWiFi;
+Configuration const config{
+    .wifi{
+        .ssid = CONFIG_ESP_WIFI_SSID,
+        .password = CONFIG_ESP_WIFI_PASSWORD
+    },
+    .network{
+        .name = "pokoj"sv,
+        .mqttAddress = "mqtts://192.168.0.233:8883"sv,
+        .tls{
+            .ownKey{myKey, size_t(myKeyEnd - myKey)},
+            .ownCertificate{myCert, size_t(myCertEnd - myCert)},
+            .caCertificate{caCert, size_t(caCertEnd - caCert)},
+        },
+    },
 };
 
 extern "C" void app_main()
 {
-    initializeNonVolatileStorage();
-
-    new WiFiLuna();
+    new Main(config, new RoomLightController());
 }
