@@ -1,12 +1,10 @@
 #pragma once
 
-#include <cstdint>
+extern char const caCert[] asm("_binary_ca_cert_pem_start");
+extern char const caCertEnd[] asm("_binary_ca_cert_pem_end");
 
-extern uint8_t ca_cert[] asm("_binary_ca_cert_pem_start");
-extern uint8_t ca_cert_end[] asm("_binary_ca_cert_pem_end");
+extern char const myCert[] asm("_binary_my_cert_pem_start");
+extern char const myCertEnd[] asm("_binary_my_cert_pem_end");
 
-extern uint8_t my_cert[] asm("_binary_my_cert_pem_start");
-extern uint8_t my_cert_end[] asm("_binary_my_cert_pem_end");
-
-extern uint8_t my_key[] asm("_binary_my_key_pem_start");
-extern uint8_t my_key_end[] asm("_binary_my_key_pem_end");
+extern char const myKey[] asm("_binary_my_key_pem_start");
+extern char const myKeyEnd[] asm("_binary_my_key_pem_end");

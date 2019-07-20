@@ -1,9 +1,8 @@
 set(COMPONENT_SRCS
     "main.cpp"
-    "WiFi.cpp"
 )
 
-set(COMPONENT_EMBED_TXTFILES 
+set(COMPONENT_EMBED_TXTFILES
     certificates/ca_cert.pem
     certificates/my_cert.pem
     certificates/my_key.pem
