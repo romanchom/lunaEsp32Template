@@ -1,6 +1,7 @@
 #include "Certificates.hpp"
 
 #include <luna/Main.hpp>
+#include <luna/Configuration.hpp>
 #include <luna/HardwareController.hpp>
 #include <luna/StrandWS281x.hpp>
 #include <luna/ATX.hpp>
@@ -99,11 +100,9 @@ Configuration const config{
     .network{
         .name = "Piwnica"sv,
         .mqttAddress = "mqtt://192.168.1.1"sv,
-        .tls{
-            .ownKey{myKey, size_t(myKeyEnd - myKey)},
-            .ownCertificate{myCert, size_t(myCertEnd - myCert)},
-            .caCertificate{caCert, size_t(caCertEnd - caCert)},
-        },
+        .ownKey{myKey, size_t(myKeyEnd - myKey)},
+        .ownCertificate{myCert, size_t(myCertEnd - myCert)},
+        .caCertificate{caCert, size_t(caCertEnd - caCert)},
     },
 };
 
