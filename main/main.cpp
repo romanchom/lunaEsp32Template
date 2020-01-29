@@ -32,35 +32,36 @@ using namespace luna;
 struct Lamp : Device
 {
     explicit Lamp() :
-        mPhysicalStrand(
-            32,
-            100
-        ),
-        mStrand(
-            {{-3.0f, 2.0f, 0.0f}, {2.0f, 2.0f, 0.0f}},
-            &mPhysicalStrand,
-            100,
-            0
-        )
+        mPWMTimer(0, 19520, 11),
+        mWhitePwm(&mPWMTimer, 14),
+        mRedPwm(&mPWMTimer, 15),
+        mGreenPwm(&mPWMTimer, 2),
+        mBluePwm(&mPWMTimer, 13),
+        mLight(Location{}, prism::rec2020(), {
+            {&mWhitePwm, PWMLight::White},
+            {&mRedPwm, PWMLight::Red},
+            {&mGreenPwm, PWMLight::Green},
+            {&mBluePwm, PWMLight::Blue},
+        })
     {}
-
+    
     std::vector<Strand *> strands() final
     {
         return {
-            &mStrand
+            &mLight
         };
     }
-
-    void enabled(bool value) final
-    {}
-
-    void update() final
-    {
-        mPhysicalStrand.send();
-    }
+    
+    void enabled(bool value) final {}
+    
+    void update() final {}
 private:
-    WS281xDriver mPhysicalStrand;
-    StrandWS2811 mStrand;
+    PWMTimer mPWMTimer;
+    PWM mWhitePwm;
+    PWM mRedPwm;
+    PWM mGreenPwm;
+    PWM mBluePwm;
+    PWMLight mLight;
 };
 
 extern "C" void app_main()
