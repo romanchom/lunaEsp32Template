@@ -10,7 +10,6 @@
 #include <luna/MqttPlugin.hpp>
 #include <luna/UpdatePlugin.hpp>
 #include <luna/PersistencyPlugin.hpp>
-#include <luna/RealtimePlugin.hpp>
 
 #include <luna/Infrared.hpp>
 #include <luna/Ir40ButtonRemote.hpp>
@@ -35,25 +34,34 @@ struct Lamp : Device
         mPWMTimer(0, 19520, 11),
         mWhitePwm(&mPWMTimer, 14),
         mRedPwm(&mPWMTimer, 15),
-        mGreenPwm(&mPWMTimer, 2),
-        mBluePwm(&mPWMTimer, 13),
-        mLight(Location{}, prism::rec2020(), {
-            {&mWhitePwm, PWMLight::White},
-            {&mRedPwm, PWMLight::Red},
-            {&mGreenPwm, PWMLight::Green},
-            {&mBluePwm, PWMLight::Blue},
-        })
+        mGreenPwm(&mPWMTimer, 13),
+        mBluePwm(&mPWMTimer, 2),
+        mLight(
+            Location{{0, 0, 0}, {0, 0, 0}},
+            {
+                {0.22271f, 0.26902f},
+                {0.68934f, 0.31051f},
+                {0.13173f, 0.77457f},
+                {0.13450f, 0.04598f}
+            },
+            {
+                {&mWhitePwm, PWMLight::White},
+                {&mRedPwm, PWMLight::Red},
+                {&mGreenPwm, PWMLight::Green},
+                {&mBluePwm, PWMLight::Blue},
+            }
+        )
     {}
-    
+
     std::vector<Strand *> strands() final
     {
         return {
             &mLight
         };
     }
-    
+
     void enabled(bool value) final {}
-    
+
     void update() final {}
 private:
     PWMTimer mPWMTimer;
@@ -70,21 +78,20 @@ extern "C" void app_main()
 
     Lamp hardware;
 
-    ConstantEffect light("light");
+    ConstantEffect light("light", 255.0f);
     FlameEffect flame("flame");
     PlasmaEffect plasma("plasma");
 
     EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
     PersistencyPlugin persistency(&effects.effectEngine());
-    MqttPlugin mqttPlugin("pokoj", "mqtt://192.168.1.100", &mainLoop, &effects.effectEngine());
+    MqttPlugin mqttPlugin("pokoj", "mqtt://mqtt.lan", &mainLoop, &effects.effectEngine());
     UpdatePlugin update;
-    RealtimePlugin realtime("pokoj", &hardware);
 
     Ir40ButtonRemote demux(&effects.effectEngine(), &light);
     Infrared ir(&mainLoop, 12, &demux);
 
     LunaConfiguration config{
-        .plugins = {&effects, &mqttPlugin, &update, &realtime},
+        .plugins = {&effects, &mqttPlugin, &update},
         .hardware = &hardware,
         .wifiCredentials{
             .ssid = CONFIG_ESP_WIFI_SSID,
