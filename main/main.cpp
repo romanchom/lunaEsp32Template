@@ -78,16 +78,16 @@ extern "C" void app_main()
 
     Lamp hardware;
 
-    ConstantEffect light("light", 255.0f);
+    ConstantEffect light("light");
     FlameEffect flame("flame");
     PlasmaEffect plasma("plasma");
 
     EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
     PersistencyPlugin persistency(&effects.effectEngine());
-    MqttPlugin mqttPlugin("pokoj", "mqtt://mqtt.lan", &mainLoop, &effects.effectEngine());
+    MqttPlugin mqttPlugin("pokoj", "mqtt://mqtt.lan", &mainLoop, &effects.effectEngine(), 255.0f);
     UpdatePlugin update;
 
-    Ir40ButtonRemote demux(&effects.effectEngine(), &light);
+    Ir40ButtonRemote demux(&effects.effectEngine(), &light, 0.25f);
     Infrared ir(&mainLoop, 12, &demux);
 
     LunaConfiguration config{
