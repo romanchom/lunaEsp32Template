@@ -75,12 +75,9 @@ extern "C" void app_main()
 
     EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
     PersistencyPlugin persistency(&effects.effectEngine());
-    MqttPlugin mqttPlugin("pokoj", "mqtt://192.168.1.100", &mainLoop, &effects.effectEngine());
+    MqttPlugin mqttPlugin("pokoj", "mqtt://mqtt.lan", &mainLoop, &effects.effectEngine(), 255.0f);
     UpdatePlugin update;
     RealtimePlugin realtime("pokoj", &hardware);
-
-    Ir40ButtonRemote demux(&effects.effectEngine(), &light);
-    Infrared ir(&mainLoop, 12, &demux);
 
     LunaConfiguration config{
         .plugins = {&effects, &mqttPlugin, &update, &realtime},
