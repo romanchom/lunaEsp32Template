@@ -1,8 +1,23 @@
 #include "Certificates.hpp"
 
-#include <luna/Main.hpp>
-#include <luna/Configuration.hpp>
-#include <luna/HardwareController.hpp>
+#include <luna/EventLoop.hpp>
+
+#include <luna/ConstantEffect.hpp>
+#include <luna/FlameEffect.hpp>
+#include <luna/PlasmaEffect.hpp>
+
+#include <luna/EffectsPlugin.hpp>
+#include <luna/MqttPlugin.hpp>
+#include <luna/UpdatePlugin.hpp>
+#include <luna/PersistencyPlugin.hpp>
+#include <luna/RealtimePlugin.hpp>
+
+#include <luna/Infrared.hpp>
+#include <luna/Ir40ButtonRemote.hpp>
+
+#include <luna/Luna.hpp>
+
+#include <luna/Device.hpp>
 #include <luna/StrandWS281x.hpp>
 #include <luna/ATX.hpp>
 #include <luna/PWMLight.hpp>
@@ -13,7 +28,6 @@
 static char const TAG[] = "App";
 
 using namespace luna;
-using namespace std::literals;
 
 constexpr float rgbLedCurrentDraw = 0.02f;
 constexpr float whiteLedCurrentDraw = 4.8f;
@@ -24,7 +38,8 @@ struct LightEdge
         mRGBDriver(rgbPin, 120),
         mRGBMeter(&mRGBDriver, rgbLedCurrentDraw),
         mRGB(location, &mRGBDriver, 120, 0),
-        mWhite(location, whitePin, pwmTimer)
+        mWhitePwm(pwmTimer, whitePin),
+        mWhite(location, prism::sRGB(), {{&mWhitePwm, PWMLight::White, whiteLedCurrentDraw}})
     {}
 
     StrandWS2812 * rgb() { return &mRGB; }
@@ -39,10 +54,11 @@ private:
     WS281xDriver mRGBDriver;
     WS281xMeter mRGBMeter;
     StrandWS2812 mRGB;
+    PWM mWhitePwm;
     PWMLight mWhite;
 };
 
-struct CinemaLightController : HardwareController
+struct CinemaLightController : Device
 {
     explicit CinemaLightController() :
         mPWMTimer(0, 19520, 11),
@@ -92,21 +108,37 @@ private:
     LightEdge mRight;
 };
 
-Configuration const config{
-    .wifi{
-        .ssid = CONFIG_ESP_WIFI_SSID,
-        .password = CONFIG_ESP_WIFI_PASSWORD
-    },
-    .network{
-        .name = "Piwnica"sv,
-        .mqttAddress = "mqtt://192.168.1.1"sv,
-        .ownKey{myKey, size_t(myKeyEnd - myKey)},
-        .ownCertificate{myCert, size_t(myCertEnd - myCert)},
-        .caCertificate{caCert, size_t(caCertEnd - caCert)},
-    },
-};
 
 extern "C" void app_main()
 {
-    new Main(config, new CinemaLightController());
+    EventLoop mainLoop;
+
+    CinemaLightController hardware;
+
+    ConstantEffect light("light");
+    FlameEffect flame("flame");
+    PlasmaEffect plasma("plasma");
+
+    EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
+    PersistencyPlugin persistency(&effects.effectEngine());
+    MqttPlugin mqttPlugin("Piwnica", "mqtt://192.168.1.1", &mainLoop, &effects.effectEngine(), 255.0f);
+    UpdatePlugin update;
+    RealtimePlugin realtime("Piwnica", &hardware);
+
+    LunaConfiguration config{
+        .plugins = {&effects, &mqttPlugin, &update, &realtime},
+        .hardware = &hardware,
+        .wifiCredentials{
+            .ssid = CONFIG_ESP_WIFI_SSID,
+            .password = CONFIG_ESP_WIFI_PASSWORD
+        },
+        .tlsCredentials{
+            .ownKey{myKey, size_t(myKeyEnd - myKey)},
+            .ownCertificate{myCert, size_t(myCertEnd - myCert)},
+            .caCertificate{caCert, size_t(caCertEnd - caCert)},
+        }
+    };
+
+    Luna lun(&mainLoop, &config);
+    mainLoop.execute();
 }
