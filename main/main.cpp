@@ -123,7 +123,7 @@ extern "C" void app_main()
     RealtimePlugin realtime("Piwnica", &device);
 
     LunaConfiguration config{
-        .plugins = {&effects, &mqttPlugin, &update, &realtime},
+        .plugins = {&effects, &persistency, &mqttPlugin, &update, &realtime},
         .device = &device,
         .wifiCredentials{
             .ssid = CONFIG_ESP_WIFI_SSID,
