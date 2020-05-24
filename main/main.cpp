@@ -1,12 +1,11 @@
 #include "Certificates.hpp"
 
-#include <luna/EventLoop.hpp>
 
 #include <luna/ConstantEffect.hpp>
 #include <luna/FlameEffect.hpp>
 #include <luna/PlasmaEffect.hpp>
 
-#include <luna/EffectsPlugin.hpp>
+#include <luna/EffectEngine.hpp>
 #include <luna/MqttPlugin.hpp>
 #include <luna/UpdatePlugin.hpp>
 #include <luna/PersistencyPlugin.hpp>
@@ -111,23 +110,21 @@ private:
 
 extern "C" void app_main()
 {
-    EventLoop mainLoop;
-
-    CinemaLightController hardware;
+    CinemaLightController device;
 
     ConstantEffect light("light");
     FlameEffect flame("flame");
     PlasmaEffect plasma("plasma");
 
-    EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
-    PersistencyPlugin persistency(&effects.effectEngine());
-    MqttPlugin mqttPlugin("Piwnica", "mqtt://192.168.1.1", &mainLoop, &effects.effectEngine(), 255.0f);
+    EffectEngine effects({&light, &flame, &plasma});
+    PersistencyPlugin persistency(&effects);
+    MqttPlugin mqttPlugin("Piwnica", "mqtt://192.168.1.1", &effects, 255.0f);
     UpdatePlugin update;
-    RealtimePlugin realtime("Piwnica", &hardware);
+    RealtimePlugin realtime("Piwnica", &device);
 
     LunaConfiguration config{
         .plugins = {&effects, &mqttPlugin, &update, &realtime},
-        .hardware = &hardware,
+        .device = &device,
         .wifiCredentials{
             .ssid = CONFIG_ESP_WIFI_SSID,
             .password = CONFIG_ESP_WIFI_PASSWORD
@@ -139,6 +136,6 @@ extern "C" void app_main()
         }
     };
 
-    Luna lun(&mainLoop, &config);
-    mainLoop.execute();
+    Luna lun(&config);
+    lun.run();
 }
