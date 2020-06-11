@@ -120,7 +120,7 @@ extern "C" void app_main()
     PersistencyPlugin persistency(&effects);
     MqttPlugin mqttPlugin("Piwnica", "mqtt://192.168.1.1", &effects, 255.0f);
     UpdatePlugin update;
-    RealtimePlugin realtime("Piwnica", &device);
+    RealtimePlugin realtime("Piwnica");
 
     LunaConfiguration config{
         .plugins = {&effects, &persistency, &mqttPlugin, &update, &realtime},
