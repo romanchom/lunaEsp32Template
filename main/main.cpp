@@ -1,11 +1,16 @@
 #include "Certificates.hpp"
 
+#include <luna/Device.hpp>
+#include <luna/PWMLight.hpp>
+#include <luna/StrandWS281x.hpp>
+#include <luna/WS281xMeter.hpp>
+#include <luna/ATX.hpp>
 
 #include <luna/ConstantEffect.hpp>
 #include <luna/FlameEffect.hpp>
 #include <luna/PlasmaEffect.hpp>
 
-#include <luna/EffectEngine.hpp>
+#include <luna/EffectPlugin.hpp>
 #include <luna/MqttPlugin.hpp>
 #include <luna/UpdatePlugin.hpp>
 #include <luna/PersistencyPlugin.hpp>
@@ -15,12 +20,6 @@
 #include <luna/Ir40ButtonRemote.hpp>
 
 #include <luna/Luna.hpp>
-
-#include <luna/Device.hpp>
-#include <luna/StrandWS281x.hpp>
-#include <luna/ATX.hpp>
-#include <luna/PWMLight.hpp>
-#include <luna/WS281xMeter.hpp>
 
 #include <esp_log.h>
 
@@ -107,7 +106,6 @@ private:
     LightEdge mRight;
 };
 
-
 extern "C" void app_main()
 {
     CinemaLightController device;
@@ -116,7 +114,7 @@ extern "C" void app_main()
     FlameEffect flame("flame");
     PlasmaEffect plasma("plasma");
 
-    EffectEngine effects({&light, &flame, &plasma});
+    EffectPlugin effects({&light, &flame, &plasma});
     PersistencyPlugin persistency(&effects);
     MqttPlugin mqttPlugin("Piwnica", "mqtt://192.168.1.1", &effects, 255.0f);
     UpdatePlugin update;
