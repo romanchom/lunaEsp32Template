@@ -1,11 +1,14 @@
-set(COMPONENT_SRCS
-    "main.cpp"
+idf_component_register(
+    SRCS
+        "main.cpp"
+    EMBED_TXTFILES
+        "certificates/ca_cert.pem"
+        "certificates/my_cert.pem"
+        "certificates/my_key.pem"
 )
 
-set(COMPONENT_EMBED_TXTFILES
-    certificates/ca_cert.pem
-    certificates/my_cert.pem
-    certificates/my_key.pem
-)
+add_subdirectory(libLunaEsp32)
 
-register_component()
+target_link_libraries(${COMPONENT_LIB}
+    PUBLIC libLunaEsp32
+)
