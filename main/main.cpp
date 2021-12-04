@@ -6,7 +6,7 @@
 #include <luna/FlameEffect.hpp>
 #include <luna/PlasmaEffect.hpp>
 
-#include <luna/EffectsPlugin.hpp>
+#include <luna/EffectPlugin.hpp>
 #include <luna/MqttPlugin.hpp>
 #include <luna/UpdatePlugin.hpp>
 #include <luna/PersistencyPlugin.hpp>
@@ -19,9 +19,6 @@
 
 #include <luna/Device.hpp>
 #include <luna/StrandWS281x.hpp>
-#include <luna/ATX.hpp>
-#include <luna/PWMLight.hpp>
-#include <luna/WS281xMeter.hpp>
 
 #include <esp_log.h>
 
@@ -33,13 +30,19 @@ struct Lamp : Device
 {
     explicit Lamp() :
         mPhysicalStrand(
-            32,
-            100
+            14,
+            94
         ),
-        mStrand(
-            {{-3.0f, 2.0f, 0.0f}, {2.0f, 2.0f, 0.0f}},
+        mStrandTop(
+            {{1.0f, 1.0f, 0.0f}, {-1.9f, 1.0f, 0.0f}},
             &mPhysicalStrand,
-            100,
+            58,
+            36
+        ),
+        mStrandSide(
+            {{1.0f, -0.9f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+            &mPhysicalStrand,
+            36,
             0
         )
     {}
@@ -47,7 +50,8 @@ struct Lamp : Device
     std::vector<Strand *> strands() final
     {
         return {
-            &mStrand
+            &mStrandTop,
+            &mStrandSide,
         };
     }
 
@@ -60,28 +64,27 @@ struct Lamp : Device
     }
 private:
     WS281xDriver mPhysicalStrand;
-    StrandWS2811 mStrand;
+    StrandWS2811 mStrandTop;
+    StrandWS2811 mStrandSide;
 };
 
 extern "C" void app_main()
 {
-    EventLoop mainLoop;
 
-    Lamp hardware;
+    Lamp device;
 
     ConstantEffect light("light");
     FlameEffect flame("flame");
     PlasmaEffect plasma("plasma");
 
-    EffectPlugin effects(&mainLoop, {&light, &flame, &plasma});
-    PersistencyPlugin persistency(&effects.effectEngine());
-    MqttPlugin mqttPlugin("pokoj", "mqtt://mqtt.lan", &mainLoop, &effects.effectEngine(), 255.0f);
+    EffectPlugin effects({&light, &flame, &plasma});
+    PersistencyPlugin persistency(&effects);
+    MqttPlugin mqttPlugin("bedroom", "mqtt://192.168.4.8", &effects, 255.0f);
     UpdatePlugin update;
-    RealtimePlugin realtime("pokoj", &hardware);
 
     LunaConfiguration config{
-        .plugins = {&effects, &mqttPlugin, &update, &realtime},
-        .hardware = &hardware,
+        .plugins = {&effects, &mqttPlugin, &update,},
+        .device = &device,
         .wifiCredentials{
             .ssid = CONFIG_ESP_WIFI_SSID,
             .password = CONFIG_ESP_WIFI_PASSWORD
@@ -93,6 +96,6 @@ extern "C" void app_main()
         }
     };
 
-    Luna lun(&mainLoop, &config);
-    mainLoop.execute();
+    Luna lun(&config);
+    lun.run();
 }
