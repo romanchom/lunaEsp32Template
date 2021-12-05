@@ -10,10 +10,6 @@
 #include <luna/MqttPlugin.hpp>
 #include <luna/UpdatePlugin.hpp>
 #include <luna/PersistencyPlugin.hpp>
-#include <luna/RealtimePlugin.hpp>
-
-#include <luna/Infrared.hpp>
-#include <luna/Ir40ButtonRemote.hpp>
 
 #include <luna/Luna.hpp>
 
@@ -70,7 +66,6 @@ private:
 
 extern "C" void app_main()
 {
-
     Lamp device;
 
     ConstantEffect light("light");
