@@ -1,4 +1,4 @@
 [submodule "components/libLunaEsp32"]
-	path = main/libLunaEsp32
+	path = libLunaEsp32
 	url = git@github.com:romanchom/libLunaEsp32.git
 	

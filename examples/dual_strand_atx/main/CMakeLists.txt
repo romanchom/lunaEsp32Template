@@ -7,7 +7,7 @@ idf_component_register(
         "certificates/my_key.pem"
 )
 
-add_subdirectory(libLunaEsp32)
+add_subdirectory(../../../libLunaEsp32 libLunaEsp32)
 
 target_link_libraries(${COMPONENT_LIB}
     PUBLIC libLunaEsp32
