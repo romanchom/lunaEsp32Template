@@ -41,7 +41,8 @@ struct Lamp : Device
             {mPWM.getChannel(0), PWMLight::Red},
             {mPWM.getChannel(1), PWMLight::Green},
             {mPWM.getChannel(2), PWMLight::Blue},
-            {mPWM.getChannel(3), PWMLight::White},
+            {mPWM.getChannel(3), PWMLight::CoolWhite},
+            {mPWM.getChannel(4), PWMLight::WarmWhite},
         })
     {}
 
@@ -78,10 +79,11 @@ extern "C" void app_main()
         {"plasma",&plasma}
     });
     PersistencyPlugin persistency(&effects);
-    MqttPlugin mqttPlugin("lamp", "mqtt://192.168.4.8", &effects, 255.0f);
+    MqttPlugin mqttPlugin("mqtt://192.168.4.8", &effects, 255.0f);
     UpdatePlugin update;
 
     LunaConfiguration config{
+        .name = "tableLamp",
         .plugins = {&persistency, &effects, &mqttPlugin, &update},
         .device = &device,
         .wifiCredentials{
